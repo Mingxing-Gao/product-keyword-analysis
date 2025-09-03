@@ -252,5 +252,222 @@ def generate_description(term, category):
     """根据词语和类别生成描述"""
     descriptions = {
         # 产品类型描述
-        "​
-Add app code
+        "产品类型": {
+            "bed": "基础床型设计",
+            "cave": "半封闭式设计",
+            "house": "结构化设计",
+            "tent": "帐篷式设计",
+            "sofa": "沙发式设计",
+            "couch": "长椅式设计",
+            "mat": "薄垫式设计",
+            "pants": "基础裤型",
+            "leggings": "贴身弹性裤",
+            "yoga": "瑜伽专用",
+            "flare": "下摆喇叭形状",
+            "bootcut": "微喇设计",
+            "wide leg": "宽松腿型",
+            "capri": "中长款",
+            "shorts": "短款设计"
+        },
+        
+        # 功能特性描述
+        "功能特性": {
+            "high waist": "高腰设计",
+            "waisted": "高腰设计",
+            "pockets": "实用口袋设计",
+            "pocket": "实用口袋设计",
+            "tummy control": "塑形收腹功能",
+            "control": "提供塑型控制",
+            "compression": "肌肉支撑压缩",
+            "washable": "可清洗的设计",
+            "machine": "可机器清洗",
+            "waterproof": "防水功能设计",
+            "slip": "底部防滑设计",
+            "removable": "可拆卸清洗的设计",
+            "foldable": "可折叠存储的设计",
+            "calming": "减轻焦虑的设计",
+            "anxiety": "缓解焦虑感的设计",
+            "orthopedic": "提供关节支撑功能"
+        },
+        
+        # 材质特征描述
+        "材质特征": {
+            "soft": "柔软舒适的材质",
+            "plush": "绒毛材质",
+            "fluffy": "松软的表面材质",
+            "fur": "皮毛材质",
+            "fleece": "摇粒绒材质",
+            "sherpa": "绵羊绒材质",
+            "buttery": "超柔软手感",
+            "cotton": "棉质材料",
+            "polyester": "聚酯材质",
+            "spandex": "含氨纶弹性材质",
+            "nylon": "含尼龙材质"
+        },
+        
+        # 适用对象描述
+        "适用对象": {
+            "indoor": "适合室内使用",
+            "small": "适合小型身材",
+            "medium": "适合中型身材",
+            "large": "适合大型身材",
+            "women": "适合女性",
+            "men": "适合男性",
+            "kids": "适合儿童",
+            "puppy": "适合幼犬",
+            "kitten": "适合幼猫",
+            "petite": "适合矮个身材",
+            "tall": "适合高个身材",
+            "plus size": "适合大码身材"
+        }
+    }
+    
+    if category in descriptions and term.lower() in descriptions[category]:
+        return descriptions[category][term.lower()]
+    else:
+        # 如果没有预定义描述，生成通用描述
+        if category == "产品类型":
+            return f"{term}类型产品"
+        elif category == "功能特性":
+            return f"提供{term}功能"
+        elif category == "材质特征":
+            return f"{term}材质"
+        elif category == "适用对象":
+            return f"适合{term}使用"
+        else:
+            return ""
+
+# 主程序逻辑
+if uploaded_file is not None:
+    df = pd.read_excel(uploaded_file)
+    columns = df.columns.tolist()
+    
+    title_column = st.selectbox("选择标题列", columns)
+    review_column = st.selectbox("选择评论数量列", columns)
+    
+    if st.button("分析"):
+        if not core_keyword:
+            st.error("请输入核心关键词")
+        else:
+            with st.spinner("正在分析关键词..."):
+                # 进行关键词统计
+                keyword_stats = count_keywords_by_reviews(df, title_column, review_column, core_keyword)
+                
+                # 显示分析结果
+                st.subheader("关键词分析结果")
+                
+                # 创建结果表格
+                for category, keywords in keyword_stats.items():
+                    if keywords:  # 只显示有内容的分类
+                        st.write(f"### {category}关键词统计")
+                        
+                        # 创建结果数据框
+                        result_data = []
+                        for kw, count in list(keywords.items())[:20]:  # 只取前20个结果避免过长
+                            chinese_translation = translate_common_terms(kw)
+                            description = generate_description(kw, category)
+                            result_data.append({
+                                "英文关键词": kw,
+                                "中文对应词": chinese_translation,
+                                f"{category}描述": description,
+                                "评论数累计": int(count)
+                            })
+                        
+                        if result_data:
+                            result_df = pd.DataFrame(result_data)
+                            st.dataframe(result_df)
+                            
+                            # 生成可视化图表
+                            if len(result_data) > 0:
+                                top_n = min(10, len(result_data))
+                                fig, ax = plt.subplots(figsize=(10, 6))
+                                chart_data = result_df.head(top_n)
+                                sns.barplot(x="评论数累计", y="英文关键词", data=chart_data, ax=ax)
+                                ax.set_title(f"Top {top_n} {category}关键词评论数")
+                                st.pyplot(fig)
+                
+                # 组合关键词分析
+                st.subheader("高评论量关键词组合")
+                
+                # 从每个类别中获取前2个关键词
+                top_product_types = list(keyword_stats["产品类型"].keys())[:2] if keyword_stats["产品类型"] else []
+                top_features = list(keyword_stats["功能特性"].keys())[:2] if keyword_stats["功能特性"] else []
+                top_materials = list(keyword_stats["材质特征"].keys())[:2] if keyword_stats["材质特征"] else []
+                top_targets = list(keyword_stats["适用对象"].keys())[:2] if keyword_stats["适用对象"] else []
+                
+                # 创建组合
+                combinations = []
+                
+                # 产品类型 + 功能特性
+                for p in top_product_types:
+                    for f in top_features:
+                        combinations.append((p, f))
+                
+                # 产品类型 + 材质
+                for p in top_product_types:
+                    for m in top_materials:
+                        combinations.append((p, m))
+                
+                # 产品类型 + 适用对象
+                for p in top_product_types:
+                    for t in top_targets:
+                        combinations.append((p, t))
+                
+                # 功能特性 + 材质
+                for f in top_features:
+                    for m in top_materials:
+                        combinations.append((f, m))
+                
+                # 计算组合的评论数累计
+                combo_results = []
+                for combo in combinations:
+                    word1, word2 = combo
+                    
+                    # 获取各个词的评论数
+                    word1_count = 0
+                    word2_count = 0
+                    
+                    for category in keyword_stats:
+                        if word1 in keyword_stats[category]:
+                            word1_count = keyword_stats[category][word1]
+                        if word2 in keyword_stats[category]:
+                            word2_count = keyword_stats[category][word2]
+                    
+                    # 计算中文翻译
+                    word1_chinese = translate_common_terms(word1)
+                    word2_chinese = translate_common_terms(word2)
+                    
+                    combo_results.append({
+                        "英文组合关键词": f"{word1} {word2}",
+                        "中文对应词": f"{word1_chinese}{word2_chinese}",
+                        "评论数累计": word1_count + word2_count
+                    })
+                
+                # 排序并显示组合结果
+                if combo_results:
+                    combo_results.sort(key=lambda x: x["评论数累计"], reverse=True)
+                    combo_df = pd.DataFrame(combo_results)
+                    st.dataframe(combo_df)
+                    
+                    # 可视化前10个组合
+                    top_combos = min(10, len(combo_results))
+                    if top_combos > 0:
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        chart_data = combo_df.head(top_combos)
+                        sns.barplot(x="评论数累计", y="英文组合关键词", data=chart_data, ax=ax)
+                        ax.set_title(f"Top {top_combos} 关键词组合评论数")
+                        st.pyplot(fig)
+                
+                st.success("分析完成!")
+
+st.markdown("""
+---
+### 使用指南
+
+1. 上传包含产品数据的Excel文件
+2. 输入核心关键词，例如"cat bed"、"yoga pants"或任何产品名称
+3. 选择标题列和评论数量列
+4. 点击"分析"按钮获取结果
+
+分析结果将显示产品类型、功能特性、材质特征和适用对象四大类关键词的评论数统计，以及高评论量的关键词组合。
+""")
